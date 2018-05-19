@@ -1,13 +1,25 @@
 #!/bin/env python
 
 from const import *
+from errors import *
 from helper import mix_colors, unmix_color
 
 class Field:
-    def __init__(self, size):
+    def __init__(self, size=-1, field=None):
         self.size = size
-        self._data = ["x" * size] * size # init empty field
-        # _data[i]: i-th row (= string)
+        if field:
+            if len({len(x) for x in field}) != 1:
+                raise DimensionError("invalid string dimensions in `field`")
+            elif size >= 0 and len(field[0]) != size:
+                raise DimensionError("`size` not matching dimension of `field`")
+            else:
+                self._data = field
+        else:
+            if size < 0:
+                raise ValueError("`size` < 0 only allowed with field given")
+            else:
+                self._data = [["x"] * size for __ in range(size)]# init empty field
+                # _data[i]: i-th row (= string)
     
     def vc(self, *args): # valid
         """
@@ -21,28 +33,29 @@ class Field:
 
     def set_color(self, x, y, c):
         if c in COLORS:
-            if self.vc(x, y) and (self._data[y][x] == "x" or c == "x"):
-                self._data[y][x] = c 
+            if self.vc(x, y):
+                self._data[y][x] = c #WUT!?
             else:
                 raise RuntimeError("Invalid Coordinates ({}, {})".format(x, y))
         else:
             raise ValueError("Invalid Color '{}'".format(c))
-    
+
     def can_set_color(self, x, y, c):
         return c in COLORS and self.vc(x, y) and self.get_color(x, y) == "x"
-    
+
     def get_color(self, x, y):
         return self._data[y][x]
     
     def play_card(self, x, y, c):
         if not self.can_set_color(x, y, c):
-            raise RuntimeError("Invalid Move!")
+            raise RuntimeError("Invalid Move '{}' on '{}' at ({}/{})!"
+                               .format(c, self.get_color(x, y), x, y))
         if c in C_BASE:
-            self.proC_BASE(x, y, c)
+            self.proc_BASE(x, y, c)
         elif c in C_SECU:
-            self.proC_SECU(x, y, c)
+            self.proc_SECU(x, y, c)
         elif c in C_ILLU:
-            self.proC_ILLU(x, y, c)
+            self.proc_ILLU(x, y, c)
         else:
             raise ValueError("Invalid Color '{}' in 'play_card'".format(c))
     
@@ -58,7 +71,7 @@ class Field:
         else:
             raise RuntimeError("Invalid Coordinates in 'fill'")
     
-    def proC_BASE(self, x, y, c):
+    def proc_BASE(self, x, y, c):
         center_colors = set()
         for d in DIRS:
             dx, dy = d     # direction deltas
@@ -66,8 +79,6 @@ class Field:
             trav_secu = set()
             while self.vc(cx, cy): # walk into direction
                 this_color = self.get_color(cx, cy)
-                if this_color == "x":
-                    continue
                 if this_color in C_BASE:
                     c_fill = mix_colors(this_color, c)
                     # only overpaint res. color when mixing
@@ -80,11 +91,10 @@ class Field:
                     if c in unmix_color(this_color, rev=True):
                         break# on color that can't be mixed with `c`
                 cx, cy = cx+dx, cy+dy # step
-        
         if len(center_colors) != 1: # if unclear about center color (or nothing
             self.set_color(x, y, c) # filled), leave played color on field
     
-    def proC_SECU(self, x, y, c):
+    def proc_SECU(self, x, y, c):
         center_colors = set()
         unmix = unmix_color(c)
         for d in DIRS:
@@ -93,8 +103,6 @@ class Field:
             trav_base = set()
             while self.vc(cx, cy): # walk into direction
                 this_color = self.get_color(cx, cy)
-                if this_color == "x":
-                    continue
                 if this_color in C_BASE:
                     if c in unmix:
                         trav_base.add(this_color)
@@ -111,7 +119,7 @@ class Field:
         if len(center_colors) != 1: # if unclear about center color (or nothing
             self.set_color(x, y, c) # filled), leave played color on field
 
-    def proC_ILLU(self, x, y, c):
+    def proc_ILLU(self, x, y, c):
         center_colors = set()
         unmix = unmix_color(c)
         for d in DIRS:
@@ -119,8 +127,6 @@ class Field:
             cx, cy = x+dx, y+dy  # start curr. postition next to start position
             while self.vc(cx, cy): # walk into direction
                 this_color = self.get_color(cx, cy)
-                if this_color == "x":
-                    continue
                 if this_color in C_ILLU:
                     if this_color == c:
                         self.fill(x, y, cx, cy, c)
@@ -134,3 +140,9 @@ class Field:
             
         if len(center_colors) != 1: # if unclear about center color (or nothing
             self.set_color(x, y, c) # filled), leave played color on field
+    
+    def __str__(self):
+        return "\n".join(["".join(x) for x in self._data])
+
+    def __repr__(self):
+        return "<Field with size `{}`>".format(self.size)
