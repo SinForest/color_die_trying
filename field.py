@@ -83,7 +83,7 @@ class Field:
                 if this_color in C_BASE:
                     c_fill = mix_colors(this_color, c)
                     # only overpaint res. color when mixing
-                    if c_fill == c or len(trav_secu - {c}) == 0:
+                    if c_fill == c or len(trav_secu - {c_fill}) == 0:
                         self.fill(x, y, cx, cy, c_fill)
                         center_colors.add(c_fill)
                     break
