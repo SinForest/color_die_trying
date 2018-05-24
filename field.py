@@ -33,16 +33,17 @@ class Field:
         return True
 
     def set_color(self, x, y, c):
-        if c in COLORS:
+        if c in COLORS or c == "x":
             if self.vc(x, y):
-                self._data[y][x] = c #WUT!?
+                self._data[y][x] = c #WUT!? # I can't remember why I wrote 'WUT!?' here?
             else:
                 raise RuntimeError("Invalid Coordinates ({}, {})".format(x, y))
         else:
-            raise ValueError("Invalid Color '{}'".format(c))
+            raise ValueError("Invalid Color '{}' in 'set_color'".format(c))
 
     def can_set_color(self, x, y, c):
         return c in COLORS and self.vc(x, y) and self.get_color(x, y) == "x"
+        # "x" is not allowed here, since this checks for a playable move
 
     def get_color(self, x, y):
         return self._data[y][x]
@@ -111,10 +112,13 @@ class Field:
                             break # can't overpaint more then one base color
                     else:
                         break # can't overpaint non-used base color
-                if this_color == c:
-                    self.fill(x, y, cx, cy, c)
-                    center_colors.add(c)
-                    break
+                elif this_color in C_SECU:
+                    if this_color == c:
+                        self.fill(x, y, cx, cy, c)
+                        center_colors.add(c)
+                        break
+                    else:
+                        break
 
                 cx, cy = cx+dx, cy+dy # step
 
@@ -123,7 +127,6 @@ class Field:
 
     def proc_ILLU(self, x, y, c):
         center_colors = set()
-        unmix = unmix_color(c)
         for d in DIRS:
             dx, dy = d           # direction deltas
             cx, cy = x+dx, y+dy  # start curr. postition next to start position
