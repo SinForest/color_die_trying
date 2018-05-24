@@ -1,0 +1,28 @@
+    # def read_field_cases(self, fp="./tests.tc"):
+    #     with open(fp, 'r') as f:
+    #         cn, cb, cp, cc, ca = None, [], (), "", []
+    #         while f:
+    #             line = f.readline().strip('\n')
+    #             if line[:3] == "===": # is heading
+    #                 cn = line.strip("=")
+    #                 line = f.readline().strip('\n')
+    #                 try:
+    #                     while line and line[:3] != "---":
+    #                         cb += list(line)
+    #                         line = f.readline().strip('\n')
+    #                     x, y, cc = f.readline().strip('\n').split(",")
+    #                     cp = int(x), int(y)
+    #                     line = f.readline().strip('\n')
+    #                     if line[:3] != "---":
+    #                         print("'{}' == '---': {}".format(line[:3], line[:3] == '---'))
+    #                         raise Exception()
+    #                     while line[:3] != "---":
+    #                         ca += list(line)
+    #                     self.add_case_field(cb, cp, cc, ca, name=cn)
+    #                     print("Added case '{}'".format(cn))
+    #                 except Exception as e:
+    #                     print("Failed on:", e)
+    #                     raise IOError("reading test cases failed for case '{}'".format(cn if cn else "UNNAMED"))
+    #             else:
+    #                 print("'{}'".format(line))
+    #     return self

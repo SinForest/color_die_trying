@@ -14,6 +14,7 @@ class Field:
                 raise DimensionError("`size` not matching dimension of `field`")
             else:
                 self._data = field
+                self.size  = len(field[0])
         else:
             if size < 0:
                 raise ValueError("`size` < 0 only allowed with field given")
@@ -61,7 +62,7 @@ class Field:
     
     def fill(self, x0, y0, x1, y1, c):
         if not self.vc(x0, y0, x1, y1):
-            raise RuntimeError("Invalid Coordinates in 'fill'")
+            raise RuntimeError("Invalid Coordinates in 'fill' [({}/{}), ({}/{})] on size '{}'".format(x0,y0,x1,y1,self.size))
         if x0 == x1:
             for yi in range(min(y0, y1), max(y0, y1) + 1):
                 self.set_color(x0, yi, c)
@@ -69,7 +70,7 @@ class Field:
             for xi in range(min(x0, x1), max(x0, x1) + 1):
                 self.set_color(xi, y0, c)
         else:
-            raise RuntimeError("Invalid Coordinates in 'fill'")
+            raise RuntimeError("Coordinates in 'fill' not on line [({}/{}), ({}/{})]".format(x0,y0,x1,y1))
     
     def proc_BASE(self, x, y, c):
         center_colors = set()
@@ -104,17 +105,18 @@ class Field:
             while self.vc(cx, cy): # walk into direction
                 this_color = self.get_color(cx, cy)
                 if this_color in C_BASE:
-                    if c in unmix:
+                    if this_color in unmix:
                         trav_base.add(this_color)
                         if len(trav_base) > 1:
                             break # can't overpaint more then one base color
                     else:
-                        break # can't ovepaint non-used base color
-                cx, cy = cx+dx, cy+dy # step
-
+                        break # can't overpaint non-used base color
                 if this_color == c:
                     self.fill(x, y, cx, cy, c)
                     center_colors.add(c)
+                    break
+
+                cx, cy = cx+dx, cy+dy # step
 
         if len(center_colors) != 1: # if unclear about center color (or nothing
             self.set_color(x, y, c) # filled), leave played color on field

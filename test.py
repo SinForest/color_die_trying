@@ -1,5 +1,6 @@
 from errors import *
 from field import Field
+import json
 
 import itertools
 
@@ -12,6 +13,15 @@ class Tests:
             return func(*args, **kwargs)
         except Exception as e:
             raise NestedTestError(name, e)
+    
+    def test_assert_equal(self, name, real, should):
+        try:
+            assert real == should, "\n".join(["{} <-r-s->  {}".format(
+                                   "".join(r),"".join(s))
+                                   for r, s in zip(real, should)])
+        except Exception as e:
+            raise NestedTestError(name, e)
+
     
     def test_defaults(self):
         s = ""
@@ -46,12 +56,14 @@ class Tests:
                     break
         while name in self.field_cases.keys():
             name = str(name) + "|"
-        self.field_cases[name] = (before, position, color, after)
+        self.field_cases[name] = ([list(s) for s in before], tuple(position), color, [list(s) for s in after])
     
     def field_test(self, name):
         (b, p, c, a) = self.field_cases[name]
         field = self.test_func_err("Creating Field", Field, field=b)
         self.test_func_err("Setting Color", field.play_card, *p, c)
+        self.test_assert_equal("Testing equality", field._data, a)
+        
 
     def print_passed(self, name, fail, amount):
         s = "{}/{}".format(amount - fail, amount) if fail else "all"
@@ -65,16 +77,24 @@ class Tests:
         print("Default Tests passed")
         # test field tests:
         fail_count = 0
-        for name in sorted(self.field_cases.items(), key=lambda x:x[0]):
+        for name in sorted(self.field_cases.keys()):
             try:
                 self.field_test(name)
             except NestedTestError as e:
                 fail_count += 1
                 failed[name] = e
         self.print_passed("Field", fail_count, len(self.field_cases))
+        if fail_count > 0:
+            for name, e in failed.items():
+                print('"{}": '.format(name), e)
+    
+    def read_field_cases(self, fp="./field_tests.json"):
+        for name, case in json.load(open(fp, 'r')).items():
+            self.add_case_field(**case, name=name)
+        return self
 
 def main():
-    tests = Tests()
+    tests = Tests().read_field_cases()
     tests.test()
 
 if __name__ == '__main__':
