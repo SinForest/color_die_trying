@@ -10,4 +10,8 @@ class NestedTestError(Exception):
 
 class TurnError(Exception):
     def __init__(self, name):
-        super.__init__(name)
+        super().__init__(name)
+
+class GameError(Exception):
+    def __init__(self, name):
+        super().__init__(name)
