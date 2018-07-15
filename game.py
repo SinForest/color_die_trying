@@ -22,7 +22,6 @@ class Player:
     def init_cards(self, size):
         self.cards = dict(zip(C_BASE+C_SECU, [size//5]*6), w=size//10, k=size//10)
 
-
 class Turn:
 
     def __init__(self, name, pos, col, token):
@@ -43,10 +42,9 @@ class Game:
         self._players   = {}
         self._field     = Field(field_size)
         self._on_turn   = None
-    
-    def __repr__(self):
-        return "Game [{} players, {} fieldsize] at {}".format(self._n_players, self._field.size, id(self))
 
+    def __repr__(self):
+        return "<Game [{}started, {} players, {} fieldsize] at {}>".format("" if self.has_started() else "not ", self._n_players if self.has_started() else "{}/{}".format(len(self._players), self._n_players), self._field.size, id(self))
 
     def reg_player(self, name):
         if self.has_started():
@@ -59,12 +57,13 @@ class Game:
         player = Player(name, token)
         player.init_cards(self._field.size)
         self._players[token] = player
-
         return player
 
     def start(self, force=False):
         if self.has_started():
             raise GameError("Can't start game, is already running.")
+        if len(self._players) < 1:
+            return False
         if force and len(self._players) < self._n_players:
             self._n_players = len(self._players)
         if len(self._players) < self._n_players:
@@ -73,7 +72,8 @@ class Game:
         random.shuffle(self._turn_order)
         self._on_turn = 0
         self._started = True
-        return False
+        #TODO: lay starting cards
+        return True
     
     def get_curr_player(self):
         return self._players[self.get_curr_player_token()]
@@ -107,3 +107,5 @@ class Game:
     def has_started(self):
         return self._started
     
+    def get_field(self, string=False):
+        return str(self._field) if string else self._field

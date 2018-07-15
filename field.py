@@ -150,4 +150,4 @@ class Field:
         return "\n".join(["".join(x) for x in self._data])
 
     def __repr__(self):
-        return "<Field with size `{}`>".format(self.size)
+        return "<Field with size `{}` at {}>".format(self.size, id(self))

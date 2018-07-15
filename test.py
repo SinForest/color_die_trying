@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
 from errors import *
 from field import Field
+from game import Game
 import json
 
 import itertools
@@ -21,7 +23,42 @@ class Tests:
                                    for r, s in zip(real, should)])
         except Exception as e:
             raise NestedTestError(name, e)
+    
+    def test_should_except(self, func, *args, catch=[], **kwargs):
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            if catch and type(catch) == list:
+                return type(e) in catch
+            elif catch:
+                return type(e) == catch
+            else:
+                return True # did except with unspecified exception
+        else:
+            return False # did not except
 
+    def test_game(self):
+        s = ""
+        try:
+            s = "[init] creating game"
+            g = Game() # players: 2; size: 50
+            s = "[start] not enough players"
+            assert not g.start()
+            s = "[get_cp] get (no) current player"
+            self.test_should_except(g.get_curr_player, catch=GameError)
+            s = "[play] play when nobody is in"
+            self.test_should_except(g.play, None, catch=GameError)
+            s = "[reg] add first player"
+            g.reg_player("Test Osteron")
+            s = "[start] start game"
+            g.start()
+            s = "[start] start game again"
+            self.test_should_except(g.start, catch=GameError)
+            s = "[reg] add player on started game"
+            self.test_should_except(g.reg_player, catch=GameError)
+            #TODO: has_started x2
+        except:
+            raise
     
     def test_defaults(self):
         s = ""
@@ -87,6 +124,8 @@ class Tests:
         if fail_count > 0:
             for name, e in failed.items():
                 print('"{}": '.format(name), e)
+        self.test_game()
+        print("Game Tests passed")
     
     def read_field_cases(self, fp="./field_tests.json"):
         for name, case in json.load(open(fp, 'r')).items():
