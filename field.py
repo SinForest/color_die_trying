@@ -101,7 +101,7 @@ class Field:
         unmix = unmix_color(c)
         for d in DIRS:
             dx, dy = d           # direction deltas
-            cx, cy = x+dx, y+dy  # start curr. postition next to start position
+            cx, cy = x+dx, y+dy  # start curr. position next to start position
             trav_base = set()
             while self.vc(cx, cy): # walk into direction
                 this_color = self.get_color(cx, cy)

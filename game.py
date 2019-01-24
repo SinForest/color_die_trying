@@ -39,7 +39,7 @@ class Game:
             raise ValueError("Can't play with field of size {0}x{0}".format(field_size))
         self._started   = False
         self._n_players = n_players
-        self._players   = {}
+        self._players   = {}  # set of `Player` objects
         self._field     = Field(field_size)
         self._on_turn   = None
 
