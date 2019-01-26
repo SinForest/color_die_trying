@@ -1,5 +1,6 @@
 import random
 import string
+import json
 from collections import OrderedDict
 
 from const import *
@@ -21,6 +22,12 @@ class Player:
     
     def init_cards(self, size):
         self.cards = dict(zip(C_BASE+C_SECU, [size//5]*6), w=size//10, k=size//10)
+    
+    def dict(self):
+        return self.__dict__
+
+    def json(self):
+        return json.dumps(self.__dict__) 
 
 class Turn:
 
@@ -39,7 +46,7 @@ class Game:
             raise ValueError("Can't play with field of size {0}x{0}".format(field_size))
         self._started   = False
         self._n_players = n_players
-        self._players   = {}  # set of `Player` objects
+        self._players   = {}  # dict of `Player` objects
         self._field     = Field(field_size)
         self._on_turn   = None
 
@@ -58,13 +65,19 @@ class Game:
         player.init_cards(self._field.size)
         self._players[token] = player
         return player
+    
+    def is_name_registered(self, name):
+        return name in [p.name for p in self._players.values()]
+    
+    def is_token_registered(self, name):
+        return name in [p.name for p in self._players.keys()]
 
     def start(self, force=False):
         if self.has_started():
             raise GameError("Can't start game, is already running.")
         if len(self._players) < 1:
             return False
-        if force and len(self._players) < self._n_players:
+        if force and len(self._players) < self._n_players: # force to start game with too few players
             self._n_players = len(self._players)
         if len(self._players) < self._n_players:
             return False
