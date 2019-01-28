@@ -15,3 +15,7 @@ class TurnError(Exception):
 class GameError(Exception):
     def __init__(self, name):
         super().__init__(name)
+
+class ServerLogicError(Exception):
+    def __init__(self, name):
+        super().__init__(name)

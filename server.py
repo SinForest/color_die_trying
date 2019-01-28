@@ -3,7 +3,7 @@ import json
 from functools import reduce
 
 from game import Game
-from errors import  GameError
+from errors import *
 from game import CHARS
 
 MAX_LENGTH = 99_999
@@ -28,6 +28,13 @@ class GameConnector:
         if self.debug: print(f"### sending message ### \n{res}\n#######################")
         return self.create_msg(res)
     
+    def start_msg(self, token, force=False):
+        res = {"type": "start",
+               "token": token}
+        if force: res["force"] = "1"
+        if self.debug: print(f"### sending message ### \n{res}\n#######################")
+        return self.create_msg(res)
+    
     def error_msg(self, errtype, msg=None):
         err = {"type"   : "error", 
                "errtype": str(errtype)}
@@ -47,7 +54,7 @@ class GameConnector:
             if self.debug: print(f"incoming data: {data}")
             alldata += data
             if not data:
-                if self.debug: print("end of message")
+                if self.debug: print("connection terminated")
                 break
             if exp_len > 0:
                 ...
@@ -88,6 +95,16 @@ class GameServer(GameConnector):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind(bind_address)
         self.sock.listen(max_conn)
+        self.conns = {}
+    
+    def __del__(self):
+        """
+        ENSURE with try/finally, that the instance will be deleted!!
+        """
+        if self.debug: print("Server closing..!")
+        self.sock.close()
+        for conn in self.conns.values():
+            conn.close()
     
     def is_valid_name(self, name):
         print("name: ", name)
@@ -96,69 +113,83 @@ class GameServer(GameConnector):
         if self.game.is_name_registered(name): return False
         if not reduce(lambda x,y: x and y, [c in CHARS for c in name]): return False
         return True
+    
+    def pop_player_conn(self, token):
+        if token in self.conns.keys():
+            conn = self.conns[token]
+            del self.conns[token]
+            return conn
+        else:
+            return None
+
+    def keep_player_conn(self, token, conn, override=False):
+        if token in self.conns.keys():
+            if override:
+                self.conns[token].close()
+            else:
+                raise ServerLogicError("Can't register player connection. There is an open connection.")
+        self.conns[token] = conn
 
     def listen_register_block(self):
         conn, addr = self.sock.accept()
-        try:
-            msg = self.recv(conn, decode=True)
-            if not msg or type(msg) == json.JSONDecodeError:
-                conn.sendall(self.invalid_msg())
-            else:
-                # decode json
+        msg = self.recv(conn, decode=True)
+        if not msg or type(msg) == json.JSONDecodeError:
+            conn.sendall(self.invalid_msg())
+        else:
+            # decode json
+            try:
+                assert msg["type"] in {"reg", "start"} # invalid if wrong or no type                    
+            except:
+                conn.sendall(self.error_msg("reg_mode","Server currently only accepting registers"))
+                return None
+            if msg["type"] == "reg":
                 try:
-                    assert msg["type"] in {"reg", "start"} # invalid if wrong or no type                    
-                except:
-                    conn.sendall(self.error_msg("reg_mode","Server currently only accepting registers"))
+                    player_name = msg["name"]
+                    assert self.is_valid_name(player_name), "invalid name"
+                except Exception as e:
+                    if self.debug: print("failed with error: ", e)
+                    conn.sendall(self.error_msg("inv_name", "No or invalid name given!"))
                     return None
-                if msg["type"] == "reg":
-                    try:
-                        player_name = msg["name"]
-                        assert self.is_valid_name(player_name), "invalid name"
-                    except Exception as e:
-                        if self.debug: print("failed with error: ", e)
-                        conn.sendall(self.error_msg("inv_name", "No or invalid name given!"))
-                        return None
-                    
-                    # register player
-                    try:
-                        player = self.game.reg_player(player_name)
-                    except GameError:
-                        # this should not happen in register mode!
-                        conn.sendall(self.error_msg("wtf", "Game already started. Sorry, this should not be happening!"))
-                        return None
-                    if not player:
-                        conn.sendall(self.error_msg("game_full", "Game already full!"))
-                        return None
+                
+                # register player
+                try:
+                    player = self.game.reg_player(player_name)
+                except GameError:
+                    # this should not happen in register mode!
+                    conn.sendall(self.error_msg("wtf", "Game already started. Sorry, this should not be happening!"))
+                    return None
+                if not player:
+                    conn.sendall(self.error_msg("game_full", "Game already full!"))
+                    return None
 
-                    # send response
-                    resp = {"type"  : "reg",
-                            "msg"   : "Player registered.",
-                            "player": player.dict()}
-                    conn.sendall(self.create_msg(resp)) #TODO: own Connector method
-                    return player
-                elif msg["type"] == "start":
-                    force = "force" in msg and msg["force"] == "1"
-                    try:
-                        token = msg["token"]
-                        assert self.game.is_token_registered(token)
-                    except:
-                        conn.sendall(self.error_msg("no_token", "Starting game needs a registered player token!"))
-                        return None
-                    try:
-                        could_start = self.game.start(force)
-                    except GameError:
-                        conn.sendall(self.error_msg("wtf", "Game already started. Sorry, this should not be happening!"))
-                        return None
-                    if not could_start:
-                        conn.sendall(self.error_msg("start", "Game could not be started. Wrong amount of players."))
-                        return None
-                    # send response
-                    resp = {"type"  : "started",
-                            "msg"   : "Game started."}
-                    conn.sendall(self.create_msg(resp)) #TODO: own Connector method
-                    return True                    
-        finally:
-            conn.close()
+                # send response
+                resp = {"type"  : "reg",
+                        "msg"   : "Player registered.",
+                        "player": player.dict()}
+                conn.sendall(self.create_msg(resp)) #TODO: own Connector method
+                self.keep_player_conn(player.token, conn)
+                return player
+            elif msg["type"] == "start":
+                force = "force" in msg and msg["force"] == "1"
+                try:
+                    token = msg["token"]
+                    assert self.game.is_token_registered(token)
+                except:
+                    conn.sendall(self.error_msg("no_token", "Starting game needs a registered player token!"))
+                    return None
+                try:
+                    could_start = self.game.start(force)
+                except GameError:
+                    conn.sendall(self.error_msg("wtf", "Game already started. Sorry, this should not be happening!"))
+                    return None
+                if not could_start:
+                    conn.sendall(self.error_msg("start", "Game could not be started. Wrong amount of players."))
+                    return None
+                # send response
+                resp = {"type"  : "started",
+                        "msg"   : "Game started."}
+                conn.sendall(self.create_msg(resp)) #TODO: own Connector method
+                return True                    
         
         
 SERVER_ADDRESS = ('localhost', 13337)
@@ -166,7 +197,10 @@ MAX_CONN = 1
 
 if __name__ == "__main__":
     serv = GameServer()
-    while True:
-        print("blocking")
-        p = serv.listen_register_block()
-        print(f"returned: {p}")
+    try:
+        while True:
+            print("blocking")
+            p = serv.listen_register_block()
+            print(f"returned: {p}")
+    finally:
+        del serv

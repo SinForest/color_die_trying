@@ -13,7 +13,8 @@ if __name__ == "__main__":
 
     try:
         #TODO: test with meaningful messages
-        m = conr.reg_msg("anita")
+        m = conr.start_msg("7f^~[7Ls]VROoQ_c.Bg1Z!A6&#Dqor0Q2")
+        #m = conr.reg_msg("cobalt")
         sock.sendall(m)
         print(conr.recv(sock))
     finally:

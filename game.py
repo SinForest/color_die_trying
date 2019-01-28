@@ -10,7 +10,7 @@ from field import Field
 MIN_HAND = 25
 MAX_HAND = 35
 MAX_PLAYERS = 10
-CHARS = string.ascii_letters + string.digits + string.punctuation
+CHARS = [c for c in string.ascii_letters + string.digits + string.punctuation if c not in {"'", '"', "\\"}]
 
 class Player:
 
@@ -70,7 +70,7 @@ class Game:
         return name in [p.name for p in self._players.values()]
     
     def is_token_registered(self, name):
-        return name in [p.name for p in self._players.keys()]
+        return name in self._players.keys()
 
     def start(self, force=False):
         if self.has_started():
