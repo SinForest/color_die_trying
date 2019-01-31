@@ -129,6 +129,36 @@ class GameServer(GameConnector):
             else:
                 raise ServerLogicError("Can't register player connection. There is an open connection.")
         self.conns[token] = conn
+    
+    def game_msg(self, token, msgtype="state", no_turn=False):
+        state = self.game.get_field(string=True)
+        player = self.game.get_player(token)
+        if not player:
+            raise ServerLogicError("unregistered token")
+        res = {"type": msgtype,
+               "field": state,
+               "player": player.dict()}
+        if not no_turn:
+            turn = self.game.get_past_turn() #TODO: maybe catch exceptions here? (turn could be None)
+            res["turn"] = turn.dict()
+        if self.debug: print(f"### sending message ### \n{res}\n#######################")
+        return self.create_msg(res)
+
+        
+
+    
+    def start_game(self, force=False):
+        succ = self.game.start(force)
+        for token in self.conns.keys():
+            ... #TODO: create messages
+        for token in self.conns.keys():
+            try:
+                conn = self.pop_player_conn(token)
+                #TODO: send messages
+            finally:
+                conn.close()
+
+
 
     def listen_register_block(self):
         conn, addr = self.sock.accept()
@@ -178,7 +208,7 @@ class GameServer(GameConnector):
                     conn.sendall(self.error_msg("no_token", "Starting game needs a registered player token!"))
                     return None
                 try:
-                    could_start = self.game.start(force)
+                    could_start = self.start_game(force) #Game is started here!
                 except GameError:
                     conn.sendall(self.error_msg("wtf", "Game already started. Sorry, this should not be happening!"))
                     return None

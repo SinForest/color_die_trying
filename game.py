@@ -1,6 +1,5 @@
 import random
 import string
-import json
 from collections import OrderedDict
 
 from const import *
@@ -26,8 +25,6 @@ class Player:
     def dict(self):
         return self.__dict__
 
-    def json(self):
-        return json.dumps(self.__dict__) 
 
 class Turn:
 
@@ -36,6 +33,9 @@ class Turn:
         self.pos = pos
         self.col = col
         self.token = token
+
+    def dict(self):
+        return self.__dict__
 
 class Game:
 
@@ -49,6 +49,7 @@ class Game:
         self._players   = {}  # dict of `Player` objects
         self._field     = Field(field_size)
         self._on_turn   = None
+        self._turns     = []
 
     def __repr__(self):
         return "<Game [{}started, {} players, {} fieldsize] at {}>".format("" if self.has_started() else "not ", self._n_players if self.has_started() else "{}/{}".format(len(self._players), self._n_players), self._field.size, id(self))
@@ -88,8 +89,25 @@ class Game:
         #TODO: lay starting cards
         return True
     
+    def log_turn(self, turn):
+        self._turns.append(turn)
+    
+    def get_past_turn(self, n=1, private=True):
+        if n > len(self._turns):
+            return None
+        turn = self._turns[-n]
+        if private:
+            turn.token = ""
+        return turn
+    
     def get_curr_player(self):
         return self._players[self.get_curr_player_token()]
+    
+    def get_player(self, token):
+        try:
+            return self._players[token]
+        except KeyError:
+            return None
 
     def get_curr_player_token(self):
         if self.has_started():
@@ -116,6 +134,8 @@ class Game:
         
         # play turn
         self._field.play_card(*turn.pos, turn.col)
+
+        self.log_turn(turn)
 
     def has_started(self):
         return self._started
