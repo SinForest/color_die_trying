@@ -19,3 +19,7 @@ class GameError(Exception):
 class ServerLogicError(Exception):
     def __init__(self, name):
         super().__init__(name)
+
+class ServerConnectionError(Exception):
+    def __init__(self, name):
+        super().__init__(name)

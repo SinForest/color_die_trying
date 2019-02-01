@@ -144,21 +144,46 @@ class GameServer(GameConnector):
         if self.debug: print(f"### sending message ### \n{res}\n#######################")
         return self.create_msg(res)
 
-        
-
-    
     def start_game(self, force=False):
-        succ = self.game.start(force)
+        if not(self.game.start(force)):
+            return False
+        msgs = {}
         for token in self.conns.keys():
-            ... #TODO: create messages
+            try:
+                msgs[token] = self.game_msg(token, msgtype='starting state', no_turn=True)
+            except ServerLogicError: #unregistered token
+                tmp_conn = self.pop_player_conn(token)
+                tmp_conn.close()
+                del tmp_conn
+
         for token in self.conns.keys():
             try:
                 conn = self.pop_player_conn(token)
-                #TODO: send messages
+                conn.sendall(msgs[token])
+            except:
+                raise ServerConnectionError("Connection failed when sending starting messages")
             finally:
                 conn.close()
+        return True
 
+    def listen_for_turn(self):
+        conn, addr = self.sock.accept()
+        msg = self.recv(conn, decode=True)
+        if not msg or type(msg) == json.JSONDecodeError:
+            conn.sendall(self.invalid_msg())
+        else:
+            # decode json
+            try:
+                assert msg["type"] in {"reg", "start"} # invalid if wrong or no type
+            except:
+                conn.sendall(self.error_msg("reg_mode","Server currently only accepting registers"))
+                return None
+            try:
+                ...
+            except:
+                ...
 
+        
 
     def listen_register_block(self):
         conn, addr = self.sock.accept()
@@ -212,6 +237,10 @@ class GameServer(GameConnector):
                 except GameError:
                     conn.sendall(self.error_msg("wtf", "Game already started. Sorry, this should not be happening!"))
                     return None
+                except ServerConnectionError:
+                    conn.sendall(self.error_msg("start_conn", "A connection terminated while starting the game. Game resetting."))
+                    #TODO: reset game
+                    return None
                 if not could_start:
                     conn.sendall(self.error_msg("start", "Game could not be started. Wrong amount of players."))
                     return None
@@ -228,9 +257,15 @@ MAX_CONN = 1
 if __name__ == "__main__":
     serv = GameServer()
     try:
-        while True:
-            print("blocking")
+        while p != True:
+            print("waiting for start [blocking]")
             p = serv.listen_register_block()
             print(f"returned: {p}")
+
+        while True:
+            print("waiting for turn [blocking]")
+            t = serv.listen_for_turn() #TODO: implement!
+            print(f"returned: {t}")
+            
     finally:
         del serv
