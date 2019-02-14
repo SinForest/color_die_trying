@@ -50,7 +50,7 @@ class Field:
     
     def play_card(self, x, y, c):
         if not self.can_set_color(x, y, c):
-            raise RuntimeError("Invalid Move '{}' on '{}' at ({}/{})!"
+            raise FieldError("Invalid Move '{}' on '{}' at ({}/{})!"
                                .format(c, self.get_color(x, y), x, y))
         if c in C_BASE:
             self.proc_BASE(x, y, c)

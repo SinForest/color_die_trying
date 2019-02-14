@@ -8,6 +8,10 @@ class NestedTestError(Exception):
     def __init__(self, name, e):
         super().__init__("Failed at: {}\nOrig. Error [{}]:\n{}".format(name, type(e), e))
 
+class FieldError(Exception):
+    def __init__(self, name):
+        super().__init__(name)
+
 class TurnError(Exception):
     def __init__(self, name):
         super().__init__(name)

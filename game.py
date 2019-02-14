@@ -28,7 +28,7 @@ class Player:
 
 class Turn:
 
-    def __init__(self, name, pos, col, token):
+    def __init__(self, name, pos, col, token, **kwargs):
         self.name = name
         self.pos = pos
         self.col = col
@@ -118,17 +118,23 @@ class Game:
     def play(self, turn):
         if not self.has_started() == True:
             raise GameError("Can't play turn, the game hasn't started yet!")
+        
         if type(turn) != Turn:
             raise TurnError("wrong type for `turn`")
         #TODO: check integrity of Turn-Object
+        
         if turn.token not in self._players.keys() or self._players[turn.token].name != turn.name:
             raise TurnError("invalid name-token combination")
-        if self.get_curr_player_token != turn.token:
+        
+        if self.get_curr_player_token() != turn.token:
             raise TurnError("player '{}' is not on turn".format(turn.name))
+        
         if not (type(turn.pos) == tuple and len(turn.pos) == 2 and self._field.vc(turn.pos)):
             raise TurnError("invalid position in `turn`")
+        
         if turn.col not in COLORS:
             raise TurnError("invalid color in `turn`")
+        
         if self._players[turn.token].cards[turn.col] < 1:
             raise TurnError("player '{}' has no '{}' left".format(turn.name, turn.col))
         

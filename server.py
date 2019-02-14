@@ -2,7 +2,7 @@ import socket
 import json
 from functools import reduce
 
-from game import Game
+from game import Game, Turn
 from errors import *
 from game import CHARS
 
@@ -143,15 +143,13 @@ class GameServer(GameConnector):
             res["turn"] = turn.dict()
         if self.debug: print(f"### sending message ### \n{res}\n#######################")
         return self.create_msg(res)
-
-    def start_game(self, force=False):
-        if not(self.game.start(force)):
-            return False
+    
+    def bulk_game_msg(self, kill_conns, msgtype="state", no_turn=False):
         msgs = {}
         for token in self.conns.keys():
             try:
-                msgs[token] = self.game_msg(token, msgtype='starting state', no_turn=True)
-            except ServerLogicError: #unregistered token
+                msgs[token] = self.game_msg(token, msgtype=msgtype, no_turn=no_turn)
+            except ServerLogicError: # unregistered token
                 tmp_conn = self.pop_player_conn(token)
                 tmp_conn.close()
                 del tmp_conn
@@ -161,9 +159,17 @@ class GameServer(GameConnector):
                 conn = self.pop_player_conn(token)
                 conn.sendall(msgs[token])
             except:
-                raise ServerConnectionError("Connection failed when sending starting messages")
+                raise ServerConnectionError("Connection failed when sending messages")
             finally:
-                conn.close()
+                if kill_conns:
+                    conn.close()
+                else:
+                    self.keep_player_conn(token, conn)
+
+    def start_game(self, force=False):
+        if not(self.game.start(force)):
+            return False
+        self.bulk_game_msg('start_state', True)
         return True
 
     def listen_for_turn(self):
@@ -174,16 +180,40 @@ class GameServer(GameConnector):
         else:
             # decode json
             try:
-                assert msg["type"] in {"reg", "start"} # invalid if wrong or no type
+                assert msg["type"] in {"turn"} # More types here
             except:
-                conn.sendall(self.error_msg("reg_mode","Server currently only accepting registers"))
+                conn.sendall(self.error_msg("turn_mode", "Server currently only accepting turns."))
                 return None
-            try:
-                ...
-            except:
-                ...
+            if msg["type"] == "turn":
+                """ # this is optional, since Game.play() checks this
+                try:
+                    assert msg["token"] == self.game.get_curr_player_token()
+                except:
+                    conn.sendall(self.error_msg("no_token", "No token given or it's not your turn!"))
+                    return None
+                """
+                try:  # build turn object
+                    turn = Turn(**mgs["turn"])
+                except:
+                    conn.sendall(self.error_msg("inv_turn", "No or invalid turn object handed in 'turn' message."))
+                    return None
+                try: # play turn
+                    self.game.play(turn)
+                except GameError:
+                    conn.sendall(self.error_msg("wtf", "Game not started yet. Sorry, this should not be happening!"))
+                    return None
+                except TurnError as e:
+                    conn.sendall(self.error_msg("turn_err", f"An error occured before playing turn: <{e}>"))
+                    return None
+                except FieldError as e:
+                    conn.sendall(self.error_msg("turn_err", f"An error occured while playing turn: <{e}>"))
+                    return None
+                try: # send responses
+                    self.bulk_game_msg() #TODO
+                except:
+                    ...
 
-        
+
 
     def listen_register_block(self):
         conn, addr = self.sock.accept()
@@ -257,6 +287,7 @@ MAX_CONN = 1
 if __name__ == "__main__":
     serv = GameServer()
     try:
+        p = None
         while p != True:
             print("waiting for start [blocking]")
             p = serv.listen_register_block()
