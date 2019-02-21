@@ -103,8 +103,11 @@ class GameServer(GameConnector):
         """
         if self.debug: print("Server closing..!")
         self.sock.close()
-        for conn in self.conns.values():
-            conn.close()
+        try:
+            for conn in self.conns.values():
+                conn.close()
+        except:
+            pass # >;-)
     
     def is_valid_name(self, name):
         print("name: ", name)
@@ -209,9 +212,11 @@ class GameServer(GameConnector):
                     conn.sendall(self.error_msg("turn_err", f"An error occured while playing turn: <{e}>"))
                     return None
                 try: # send responses
-                    self.bulk_game_msg() #TODO
+                    self.bulk_game_msg(kill_conns=False)
                 except:
                     ...
+                    raise RuntimeError("Failing of sent messages not implemented yet! CRASH! AHHHH..!")
+                return turn
 
 
 
@@ -295,7 +300,7 @@ if __name__ == "__main__":
 
         while True:
             print("waiting for turn [blocking]")
-            t = serv.listen_for_turn() #TODO: implement!
+            t = serv.listen_for_turn()
             print(f"returned: {t}")
             
     finally:
