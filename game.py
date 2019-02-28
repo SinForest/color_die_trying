@@ -85,10 +85,21 @@ class Game:
         self._turn_order = list(self._players.keys())
         random.shuffle(self._turn_order)
         self._on_turn = 0
+        self.lay_starting_cards()
         self._started = True
-        #TODO: lay starting cards
+        
         return True
     
+    def lay_starting_cards(self):
+        if self._started: return
+        size = self._field.size
+        offs = int(size/3)
+        off2 = size - offs - 1
+        for x, y in [(offs, offs), (off2, offs), (offs, off2), (off2, off2)]:
+            self._field.set_color(x, y, random.choice(C_BASE + C_SECU))
+        
+
+
     def log_turn(self, turn):
         self._turns.append(turn)
     

@@ -1,6 +1,8 @@
 import socket
 
 from server import GameConnector
+from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor
 
 
 SERVER_ADDRESS = ('localhost', 13337)
@@ -8,6 +10,7 @@ FAKE_ADDRESS = ('localhost', 14447)
 
 players = {}
 conr = GameConnector(debug=True)
+pool = ThreadPoolExecutor(4)
 
 def print_green(m):
     print("\033[32;1m", m, "\n<END>\033[0m")
@@ -22,6 +25,14 @@ def send_new(addr, token, msg):
     sock.connect(addr)
     sock.send(msg)
     return sock
+
+def gen_recv(conr, decode, printfunc=None):
+    def tmp(conn):
+        answ = conr.recv(conn, decode=decode)
+        if printfunc:
+            printfunc(answ)
+        return answ
+    return tmp
 
 def ui():
     print("enter server address [localhost:13337]")
@@ -53,12 +64,19 @@ def ui():
     m = conr.start_msg(token)
     print_green(m)
     conn = send_new(addr, token, m)
-    answ = conr.recv(conn, decode=True)
-    print_red(answ)
 
+    # there is no direct answer in this version
+    #answ = conr.recv(conn, decode=True)
+    #print_red(answ)
+
+    func = gen_recv(conr, False, print_red)
+    answers = pool.map(func, players.values())
+
+    """
     for conn in players.values():
         answ = conr.recv(conn, decode=False)
         print_red(answ)
+    """
 
     #TODO:
     print("turn (player, x, y, col)")

@@ -128,9 +128,14 @@ class GameServer(GameConnector):
             return None
 
     def keep_player_conn(self, token, conn, override=False):
+        if self.debug:
+            print(f"#[KEEP] token: {token}, conns: {[key for key in self.conns.keys()]}")
         if token in self.conns.keys():
             if override:
-                self.conns[token].close()
+                if self.conns[token] != conn:
+                    self.conns[token].close()
+                else:
+                    return
             else:
                 raise ServerLogicError("Can't register player connection. There is an open connection.")
         self.conns[token] = conn
@@ -159,7 +164,7 @@ class GameServer(GameConnector):
                 tmp_conn.close()
                 del tmp_conn
 
-        tmp_keys = list(self.conns.keys()) # WO, since keys are popped dur. iteration
+        tmp_keys = list(self.conns.keys()) # Wo-Ar, since keys are popped dur. iteration
         for token in tmp_keys:
             try:
                 conn = self.pop_player_conn(token)
@@ -272,6 +277,7 @@ class GameServer(GameConnector):
                     conn.sendall(self.error_msg("no_token", "Starting game needs a registered player token!"))
                     return None
                 try:
+                    self.keep_player_conn(token, conn, override=True)
                     could_start = self.start_game(force) #Game is started here!
                 except GameError:
                     conn.sendall(self.error_msg("wtf", "Game already started. Sorry, this should not be happening!"))
@@ -283,10 +289,12 @@ class GameServer(GameConnector):
                 if not could_start:
                     conn.sendall(self.error_msg("start", "Game could not be started. Wrong amount of players."))
                     return None
+                """ # this does not make sense. the normal game start message should suffice
                 # send response
                 resp = {"type"  : "started",
                         "msg"   : "Game started."}
-                conn.sendall(self.create_msg(resp)) #TODO: own Connector method
+                conn.sendall(self.create_msg(resp))
+                """
                 return True                    
         
         
