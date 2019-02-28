@@ -80,6 +80,8 @@ class GameConnector:
                     
         
         alldata = alldata[pre_len:exp_len+pre_len]
+        #TODO: find out, if one recv can contain content of 2 different sends
+        #      if yes, this has to be concidered...
         if decode:
             try:
                 return json.loads(alldata)
@@ -157,7 +159,8 @@ class GameServer(GameConnector):
                 tmp_conn.close()
                 del tmp_conn
 
-        for token in self.conns.keys():
+        tmp_keys = list(self.conns.keys()) # WO, since keys are popped dur. iteration
+        for token in tmp_keys:
             try:
                 conn = self.pop_player_conn(token)
                 conn.sendall(msgs[token])
@@ -172,7 +175,7 @@ class GameServer(GameConnector):
     def start_game(self, force=False):
         if not(self.game.start(force)):
             return False
-        self.bulk_game_msg('start_state', True)
+        self.bulk_game_msg(True, msgtype='start_state', no_turn=True)
         return True
 
     def listen_for_turn(self):
@@ -183,7 +186,7 @@ class GameServer(GameConnector):
         else:
             # decode json
             try:
-                assert msg["type"] in {"turn"} # More types here
+                assert msg["type"] in {"turn", "reconn"} # More types here
             except:
                 conn.sendall(self.error_msg("turn_mode", "Server currently only accepting turns."))
                 return None
@@ -217,6 +220,7 @@ class GameServer(GameConnector):
                     ...
                     raise RuntimeError("Failing of sent messages not implemented yet! CRASH! AHHHH..!")
                 return turn
+            #TODO: "reconn"
 
 
 

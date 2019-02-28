@@ -7,14 +7,21 @@ SERVER_ADDRESS = ('localhost', 13337)
 FAKE_ADDRESS = ('localhost', 14447)
 
 players = {}
-conr = GameConnector(debug=False)
+conr = GameConnector(debug=True)
 
 def print_green(m):
-    print("\033[32;1m", m, "\033[0m")
+    print("\033[32;1m", m, "\n<END>\033[0m")
 
 def print_red(m):
-    print("\033[31;1m", m, "\033[0m")
+    print("\033[31;1m", m, "\n<END>\033[0m")
 
+def send_new(addr, token, msg):
+    players[token].close()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    players[token] = sock
+    sock.connect(addr)
+    sock.send(msg)
+    return sock
 
 def ui():
     print("enter server address [localhost:13337]")
@@ -42,22 +49,30 @@ def ui():
     
     print("start game [f=force]")
     force = input("-> ") == "f"
-    token, conn = next(iter(players.items()))
+    token = next(iter(players.keys()))
     m = conr.start_msg(token)
     print_green(m)
-    conn.send(m) #TODO: send over new conn!!
-    answ = conr.recv(sock, decode=True)
+    conn = send_new(addr, token, m)
+    answ = conr.recv(conn, decode=True)
     print_red(answ)
 
+    for conn in players.values():
+        answ = conr.recv(conn, decode=False)
+        print_red(answ)
+
+    #TODO:
+    print("turn (player, x, y, col)")
+    inp = input("-> ")
+    inp = inp.split()
     
-
-
 
 if __name__ == "__main__":
     try:
         ui()
-        print(players)
         #TODO
     finally:
         for conn in players.values():
-            conn.close()
+            try:
+                conn.close()
+            except:
+                pass

@@ -140,6 +140,7 @@ class Game:
         
         # play turn
         self._field.play_card(*turn.pos, turn.col)
+        self._players[turn.token].cards[turn.col] -= 1
 
         self.log_turn(turn)
 
