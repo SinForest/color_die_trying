@@ -1,6 +1,8 @@
 import socket
 import json
 from functools import reduce
+import traceback
+import sys
 
 from game import Game, Turn
 from errors import *
@@ -41,6 +43,12 @@ class GameConnector:
         if msg: err["mgs"] = msg
         if self.debug: print(f"### sending message ### \n{err}\n#######################")
         return self.create_msg(err)
+    
+    def turn_msg(self, turn):
+        res = {"type": "turn",
+               "turn": turn.dict()}
+        if self.debug: print(f"### sending message ### \n{res}\n#######################")
+        return self.create_msg(res)
 
     def recv(self, conn, decode=True):
         """
@@ -91,9 +99,9 @@ class GameConnector:
             return alldata
 
 class GameServer(GameConnector):
-    def __init__(self, bind_address=('localhost', 13337), max_conn=10, debug=True):
+    def __init__(self, bind_address=('localhost', 13337), max_conn=10, debug=True, n_players=2):
         super().__init__(debug)
-        self.game = Game(field_size=20, n_players=2)
+        self.game = Game(field_size=20, n_players=n_players)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind(bind_address)
         self.sock.listen(max_conn)
@@ -147,7 +155,9 @@ class GameServer(GameConnector):
             raise ServerLogicError("unregistered token")
         res = {"type": msgtype,
                "field": state,
-               "player": player.dict()}
+               "player": player.dict(),
+               "order": self.game.get_next_turn_order()
+               }
         if not no_turn:
             turn = self.game.get_past_turn() #TODO: maybe catch exceptions here? (turn could be None)
             res["turn"] = turn.dict()
@@ -204,9 +214,12 @@ class GameServer(GameConnector):
                     return None
                 """
                 try:  # build turn object
-                    turn = Turn(**mgs["turn"])
-                except:
+                    turn = Turn(**msg["turn"])
+                except Exception as e:
                     conn.sendall(self.error_msg("inv_turn", "No or invalid turn object handed in 'turn' message."))
+                    if self.debug:
+                        print(f"Failed with Exception: {e}")
+                        traceback.print_exc()
                     return None
                 try: # play turn
                     self.game.play(turn)
@@ -220,6 +233,7 @@ class GameServer(GameConnector):
                     conn.sendall(self.error_msg("turn_err", f"An error occured while playing turn: <{e}>"))
                     return None
                 try: # send responses
+                    self.keep_player_conn(turn.token, conn)
                     self.bulk_game_msg(kill_conns=False)
                 except:
                     ...
@@ -302,7 +316,9 @@ SERVER_ADDRESS = ('localhost', 13337)
 MAX_CONN = 1
 
 if __name__ == "__main__":
-    serv = GameServer()
+    
+    n_players = int(sys.argv[1]) if len(sys.argv) > 1 else 2
+    serv = GameServer(n_players=n_players)
     try:
         p = None
         while p != True:

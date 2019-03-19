@@ -1,5 +1,7 @@
 import socket
+from collections import OrderedDict
 
+from game import Turn
 from server import GameConnector
 from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor
@@ -8,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 SERVER_ADDRESS = ('localhost', 13337)
 FAKE_ADDRESS = ('localhost', 14447)
 
-players = {}
+players = OrderedDict()
 conr = GameConnector(debug=True)
 pool = ThreadPoolExecutor(4)
 
@@ -18,7 +20,14 @@ def print_green(m):
 def print_red(m):
     print("\033[31;1m", m, "\n<END>\033[0m")
 
+def print_cyan(m):
+    print("\033[36;1m", m, "\n<END>\033[0m")
+
 def send_new(addr, token, msg):
+    """
+    closes the socket of `token`,
+    opens new, stores it and sends `msg`
+    """
     players[token].close()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     players[token] = sock
@@ -27,9 +36,11 @@ def send_new(addr, token, msg):
     return sock
 
 def gen_recv(conr, decode, printfunc=None):
-    def tmp(conn):
+    def tmp(item):
+        token, conn = item
         answ = conr.recv(conn, decode=decode)
         if printfunc:
+            printfunc(f"###[ {token} ]###")
             printfunc(answ)
         return answ
     return tmp
@@ -57,6 +68,9 @@ def ui():
         print_red(answ)
         players[answ["player"]["token"]] = sock
     
+    for token, i in zip(players.keys(), range(int(num_players))):
+        print_cyan(f"Player {i+1}: {token}")
+    
     
     print("start game [f=force]")
     force = input("-> ") == "f"
@@ -70,7 +84,8 @@ def ui():
     #print_red(answ)
 
     func = gen_recv(conr, False, print_red)
-    answers = pool.map(func, players.values())
+    answers = pool.map(func, players.items())
+    [_ for _ in answers] # hacky wait
 
     """
     for conn in players.values():
@@ -78,10 +93,26 @@ def ui():
         print_red(answ)
     """
 
-    #TODO:
     print("turn (player, x, y, col)")
     inp = input("-> ")
-    inp = inp.split()
+    player, x, y, col = inp.split()
+    token = list(players.keys())[int(player) - 1]
+    args = {"name": f"Player_{player}", "pos": (int(x), int(y)), "col": col, "token": token}
+    turn = Turn(**args) #TODO: try/ex
+    m = conr.turn_msg(turn)
+    print_green(m)
+    conn = send_new(addr, token, m)
+    """
+    answ = conr.recv(conn, decode=True)
+    print_red(answ)
+    """
+
+    func = gen_recv(conr, False, print_red)
+    answers = pool.map(func, players.items())
+    [_ for _ in answers] # hacky wait
+
+
+
     
 
 if __name__ == "__main__":

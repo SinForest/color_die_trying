@@ -29,9 +29,9 @@ class Player:
 class Turn:
 
     def __init__(self, name, pos, col, token, **kwargs):
-        self.name = name
-        self.pos = pos
-        self.col = col
+        self.name = str(name)
+        self.pos = tuple(pos)
+        self.col = str(col)
         self.token = token
 
     def dict(self):
@@ -70,8 +70,8 @@ class Game:
     def is_name_registered(self, name):
         return name in [p.name for p in self._players.values()]
     
-    def is_token_registered(self, name):
-        return name in self._players.keys()
+    def is_token_registered(self, token):
+        return token in self._players.keys()
 
     def start(self, force=False):
         if self.has_started():
@@ -125,6 +125,9 @@ class Game:
             return self._turn_order[self._on_turn]
         else:
             raise GameError("Can't get player, the game hasn't started yet!")
+    
+    def get_next_turn_order(self):
+        return [self._players[p].name for p in (self._turn_order[self._on_turn:] + self._turn_order[:self._on_turn])] #TODO
         
     def play(self, turn):
         if not self.has_started() == True:
@@ -140,7 +143,7 @@ class Game:
         if self.get_curr_player_token() != turn.token:
             raise TurnError("player '{}' is not on turn".format(turn.name))
         
-        if not (type(turn.pos) == tuple and len(turn.pos) == 2 and self._field.vc(turn.pos)):
+        if not (type(turn.pos) == tuple and len(turn.pos) == 2 and self._field.vc(*turn.pos)):
             raise TurnError("invalid position in `turn`")
         
         if turn.col not in COLORS:
