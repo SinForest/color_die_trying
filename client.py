@@ -84,7 +84,7 @@ def ui():
     #print_red(answ)
 
     func = gen_recv(conr, False, print_red)
-    answers = pool.map(func, players.items())
+    answers = pool.map(func, players.items(), timeout=4)
     [_ for _ in answers] # hacky wait
 
     """
@@ -93,27 +93,24 @@ def ui():
         print_red(answ)
     """
 
-    print("turn (player, x, y, col)")
-    inp = input("-> ")
-    player, x, y, col = inp.split()
-    token = list(players.keys())[int(player) - 1]
-    args = {"name": f"Player_{player}", "pos": (int(x), int(y)), "col": col, "token": token}
-    turn = Turn(**args) #TODO: try/ex
-    m = conr.turn_msg(turn)
-    print_green(m)
-    conn = send_new(addr, token, m)
-    """
-    answ = conr.recv(conn, decode=True)
-    print_red(answ)
-    """
+    while True:
+        print("turn (player, x, y, col)")
+        inp = input("-> ")
+        player, x, y, col = inp.split()
+        token = list(players.keys())[int(player) - 1]
+        args = {"name": f"Player_{player}", "pos": (int(x), int(y)), "col": col, "token": token}
+        turn = Turn(**args) #TODO: try/ex
+        m = conr.turn_msg(turn)
+        print_green(m)
+        conn = send_new(addr, token, m)
+        """
+        answ = conr.recv(conn, decode=True)
+        print_red(answ)
+        """
 
-    func = gen_recv(conr, False, print_red)
-    answers = pool.map(func, players.items())
-    [_ for _ in answers] # hacky wait
-
-
-
-    
+        func = gen_recv(conr, False, print_red)
+        answers = pool.map(func, players.items())
+        [_ for _ in answers] # hacky wait
 
 if __name__ == "__main__":
     try:

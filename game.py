@@ -156,6 +156,10 @@ class Game:
         self._field.play_card(*turn.pos, turn.col)
         self._players[turn.token].cards[turn.col] -= 1
 
+        # turn rotation
+        self._on_turn += 1
+        self._on_turn %= self._n_players
+
         self.log_turn(turn)
 
     def has_started(self):

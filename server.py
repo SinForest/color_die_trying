@@ -137,7 +137,7 @@ class GameServer(GameConnector):
 
     def keep_player_conn(self, token, conn, override=False):
         if self.debug:
-            print(f"#[KEEP] token: {token}, conns: {[key for key in self.conns.keys()]}")
+            print_cyan(f"#[KEEP] token: {token}, conns: {[key for key in self.conns.keys()]}")
         if token in self.conns.keys():
             if override:
                 if self.conns[token] != conn:
@@ -161,10 +161,11 @@ class GameServer(GameConnector):
         if not no_turn:
             turn = self.game.get_past_turn() #TODO: maybe catch exceptions here? (turn could be None)
             res["turn"] = turn.dict()
+            del res["turn"]["token"]
         if self.debug: print(f"### sending message ### \n{res}\n#######################")
         return self.create_msg(res)
     
-    def bulk_game_msg(self, kill_conns, msgtype="state", no_turn=False):
+    def bulk_game_msg(self, msgtype="state", no_turn=False, kill_conns=False):
         msgs = {}
         for token in self.conns.keys():
             try:
@@ -190,7 +191,7 @@ class GameServer(GameConnector):
     def start_game(self, force=False):
         if not(self.game.start(force)):
             return False
-        self.bulk_game_msg(True, msgtype='start_state', no_turn=True)
+        self.bulk_game_msg(msgtype='start_state', no_turn=True)
         return True
 
     def listen_for_turn(self):
@@ -233,8 +234,8 @@ class GameServer(GameConnector):
                     conn.sendall(self.error_msg("turn_err", f"An error occured while playing turn: <{e}>"))
                     return None
                 try: # send responses
-                    self.keep_player_conn(turn.token, conn)
-                    self.bulk_game_msg(kill_conns=False)
+                    self.keep_player_conn(turn.token, conn, override=True)
+                    self.bulk_game_msg()
                 except:
                     ...
                     raise RuntimeError("Failing of sent messages not implemented yet! CRASH! AHHHH..!")
@@ -311,7 +312,9 @@ class GameServer(GameConnector):
                 """
                 return True                    
         
-        
+def print_cyan(m):
+    print("\033[36;1m", m, "\033[0m")
+
 SERVER_ADDRESS = ('localhost', 13337)
 MAX_CONN = 1
 
