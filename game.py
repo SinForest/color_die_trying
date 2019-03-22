@@ -6,9 +6,11 @@ from const import *
 from errors import TurnError, GameError
 from field import Field
 
-MIN_HAND = 25
+MIN_HAND = 25 #token-length
 MAX_HAND = 35
 MAX_PLAYERS = 10
+END_PERCENT = 75
+NUM_END_TURNS = 3
 CHARS = [c for c in string.ascii_letters + string.digits + string.punctuation if c not in {"'", '"', "\\"}]
 
 class Player:
@@ -17,7 +19,7 @@ class Player:
         self.name = str(name)
         self.token = token
         self.cards = None
-        ...
+        self.score_cards = None
     
     def init_cards(self, size):
         self.cards = dict(zip(C_BASE+C_SECU, [size//5]*6), w=size//10, k=size//10)
@@ -45,11 +47,13 @@ class Game:
         if field_size < 1:
             raise ValueError("Can't play with field of size {0}x{0}".format(field_size))
         self._started   = False
+        self._ended     = False
         self._n_players = n_players
         self._players   = {}  # dict of `Player` objects
         self._field     = Field(field_size)
         self._on_turn   = None
         self._turns     = []
+        self._end_turns = None # None if not end mode, else leftover turns
 
     def __repr__(self):
         return "<Game [{}started, {} players, {} fieldsize] at {}>".format("" if self.has_started() else "not ", self._n_players if self.has_started() else "{}/{}".format(len(self._players), self._n_players), self._field.size, id(self))
@@ -66,6 +70,9 @@ class Game:
         player.init_cards(self._field.size)
         self._players[token] = player
         return player
+    
+    def choose_starting_card(self, token, cards):
+        self._players[token].score_cards = cards #dict {"1", "-2", "3"}
     
     def is_name_registered(self, name):
         return name in [p.name for p in self._players.values()]
@@ -98,8 +105,6 @@ class Game:
         for x, y in [(offs, offs), (off2, offs), (offs, off2), (off2, off2)]:
             self._field.set_color(x, y, random.choice(C_BASE + C_SECU))
         
-
-
     def log_turn(self, turn):
         self._turns.append(turn)
     
@@ -161,6 +166,20 @@ class Game:
         self._on_turn %= self._n_players
 
         self.log_turn(turn)
+
+        self.check_for_end() #TODO: integrate into game_msg@server.py
+    
+    def check_for_end(self):
+        if self._end_turns == 0:
+            self.end_game()
+        elif not self.is_end_mode() and self._field.percentage_tiles_used() > END_PERCENT:
+            self._end_turns = NUM_END_TURNS * self._n_players
+
+    def is_end_mode(self):
+        return self._end_turns is not None
+    
+    def end_game(self):
+        self._ended = True
 
     def has_started(self):
         return self._started

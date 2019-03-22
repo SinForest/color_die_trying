@@ -328,6 +328,8 @@ if __name__ == "__main__":
             print("waiting for start [blocking]")
             p = serv.listen_register_block()
             print(f"returned: {p}")
+        
+        #TODO: listen choose score cards
 
         while True:
             print("waiting for turn [blocking]")

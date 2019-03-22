@@ -146,6 +146,12 @@ class Field:
         if len(center_colors) != 1: # if unclear about center color (or nothing
             self.set_color(x, y, c) # filled), leave played color on field
     
+    def number_tiles_used(self):
+        return sum([1 for c in "".join(self._data) if c != "x"]) #TODO: write tests!
+    
+    def percentage_tiles_used(self):
+        return self.number_tiles_used() / (self.size**2) * 100.
+
     def __str__(self):
         return "\n".join(["".join(x) for x in self._data])
 
