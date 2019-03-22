@@ -20,6 +20,10 @@ class GameError(Exception):
     def __init__(self, name):
         super().__init__(name)
 
+class TokenError(Exception):  #TODO: use more!
+    def __init__(self, name):
+        super().__init__(name)
+
 class ServerLogicError(Exception):
     def __init__(self, name):
         super().__init__(name)

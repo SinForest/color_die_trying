@@ -3,7 +3,7 @@ import string
 from collections import OrderedDict
 
 from const import *
-from errors import TurnError, GameError
+from errors import TurnError, GameError, TokenError
 from field import Field
 
 MIN_HAND = 25 #token-length
@@ -19,7 +19,7 @@ class Player:
         self.name = str(name)
         self.token = token
         self.cards = None
-        self.score_cards = None
+        self.score_cards = None #dict {"1", "-2", "3"}
     
     def init_cards(self, size):
         self.cards = dict(zip(C_BASE+C_SECU, [size//5]*6), w=size//10, k=size//10)
@@ -71,7 +71,16 @@ class Game:
         self._players[token] = player
         return player
     
-    def choose_starting_card(self, token, cards):
+    def choose_score_cards(self, token, cards):
+        try:
+            cards = {k: cards[k] for k in {"3", "-2", "1"}}
+            assert all([c in COLORS for c in cards.values()])
+        except:
+            raise GameError("Invalid Score Cards!")
+        
+        if token not in self._players.keys():
+            raise TokenError("Invalid Token!")
+        
         self._players[token].score_cards = cards #dict {"1", "-2", "3"}
     
     def is_name_registered(self, name):
@@ -167,22 +176,33 @@ class Game:
 
         self.log_turn(turn)
 
-        self.check_for_end() #TODO: integrate into game_msg@server.py
+        self.check_for_end()
     
     def check_for_end(self):
+        """
+        checks if last turns should be initiated; does so, if yes
+        decreases number of turns, if already in end mode
+        """
+        if not self.is_end_mode() and self._field.percentage_tiles_used() > END_PERCENT:
+            self._end_turns = NUM_END_TURNS * self._n_players
+        elif self.is_end_mode():
+            self._end_turns -= 1
+        
         if self._end_turns == 0:
             self.end_game()
-        elif not self.is_end_mode() and self._field.percentage_tiles_used() > END_PERCENT:
-            self._end_turns = NUM_END_TURNS * self._n_players
 
     def is_end_mode(self):
         return self._end_turns is not None
     
     def end_game(self):
         self._ended = True
+        #TODO: calculate scores
 
     def has_started(self):
         return self._started
+    
+    def all_score_cards_given(self):
+        return all([p.score_cards is not None for p in self._players.values()])
     
     def get_field(self, string=False):
         return str(self._field) if string else self._field

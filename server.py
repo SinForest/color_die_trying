@@ -6,6 +6,7 @@ import sys
 
 from game import Game, Turn
 from errors import *
+from const import COLORS
 from game import CHARS
 
 MAX_LENGTH = 99_999
@@ -153,10 +154,11 @@ class GameServer(GameConnector):
         player = self.game.get_player(token)
         if not player:
             raise ServerLogicError("unregistered token")
-        res = {"type": msgtype,
-               "field": state,
+        res = {"type"  : msgtype,
+               "field" : state,
                "player": player.dict(),
-               "order": self.game.get_next_turn_order()
+               "order" : self.game.get_next_turn_order(),
+               "end"   : self.game._end_turns,
                }
         if not no_turn:
             turn = self.game.get_past_turn() #TODO: maybe catch exceptions here? (turn could be None)
@@ -207,13 +209,6 @@ class GameServer(GameConnector):
                 conn.sendall(self.error_msg("turn_mode", "Server currently only accepting turns."))
                 return None
             if msg["type"] == "turn":
-                """ # this is optional, since Game.play() checks this
-                try:
-                    assert msg["token"] == self.game.get_curr_player_token()
-                except:
-                    conn.sendall(self.error_msg("no_token", "No token given or it's not your turn!"))
-                    return None
-                """
                 try:  # build turn object
                     turn = Turn(**msg["turn"])
                 except Exception as e:
@@ -242,6 +237,45 @@ class GameServer(GameConnector):
                 return turn
             #TODO: "reconn"
 
+
+    def listen_for_score_cards(self):
+        conn, addr = self.sock.accept()
+        msg = self.recv(conn, decode=True)
+        if not msg or type(msg) == json.JSONDecodeError:
+            conn.sendall(self.invalid_msg())
+        else:
+            # decode json
+            try:
+                assert msg["type"] in {"score", "reconn"} # More types here
+            except:
+                conn.sendall(self.error_msg("score_mode", "Server currently only accepting score cards."))
+                return None
+            if msg["type"] == "score":
+                try:  # extract score cards
+                    sc = {k: msg["score_cards"][k] for k in {"3", "-2", "1"}}
+                    token = msg["token"]
+                    self.game.choose_score_cards(token, sc)
+                except ValueError: # no "token"
+                    conn.sendall(self.error_msg("no_token", "No token given!"))
+                    return None
+                except TokenError: # invalid token
+                    conn.sendall(self.error_msg("inv_token", "Invalid token given!"))
+                    return None
+                except GameError: # invalid cards
+                    conn.sendall(self.error_msg("inv_score", "Invalid score cards given!"))
+                    return None
+                #TODO: response
+                #TODO: keep connection
+                #TODO: if last player, change mode, send responses to all
+                """
+                try: # send responses
+                    self.keep_player_conn(turn.token, conn, override=True)
+                    self.bulk_game_msg()
+                except:
+                    ...
+                    raise RuntimeError("Failing of sent messages not implemented yet! CRASH! AHHHH..!")
+                """
+            #TODO: "reconn"
 
 
     def listen_register_block(self):
