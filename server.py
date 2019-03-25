@@ -264,17 +264,23 @@ class GameServer(GameConnector):
                 except GameError: # invalid cards
                     conn.sendall(self.error_msg("inv_score", "Invalid score cards given!"))
                     return None
-                #TODO: response
-                #TODO: keep connection
-                #TODO: if last player, change mode, send responses to all
-                """
-                try: # send responses
-                    self.keep_player_conn(turn.token, conn, override=True)
-                    self.bulk_game_msg()
-                except:
-                    ...
-                    raise RuntimeError("Failing of sent messages not implemented yet! CRASH! AHHHH..!")
-                """
+                # send response
+                resp = {"type"  : "score",
+                        "msg"   : f"Registered score cards.",
+                        "score_cards": sc}
+                conn.sendall(self.create_msg(resp)) #TODO: own Connector method
+
+                self.keep_player_conn(token, conn)
+                
+                # if last player, send responses to all
+                if self.game.all_score_cards_given():
+                    
+                    try: # send responses
+                        self.bulk_game_msg(msgtype='start_state2', no_turn=True)
+                        return True
+                    except:
+                        ...
+                        raise RuntimeError("Failing of sent messages not implemented yet! CRASH! AHHHH..!")
             #TODO: "reconn"
 
 
@@ -338,12 +344,7 @@ class GameServer(GameConnector):
                 if not could_start:
                     conn.sendall(self.error_msg("start", "Game could not be started. Wrong amount of players."))
                     return None
-                """ # this does not make sense. the normal game start message should suffice
-                # send response
-                resp = {"type"  : "started",
-                        "msg"   : "Game started."}
-                conn.sendall(self.create_msg(resp))
-                """
+
                 return True                    
         
 def print_cyan(m):
@@ -363,7 +364,13 @@ if __name__ == "__main__":
             p = serv.listen_register_block()
             print(f"returned: {p}")
         
-        #TODO: listen choose score cards
+        """ # comment in, when client is updated
+        p = None
+        while p != True:
+            print("waiting for score cards [blocking]")
+            p = serv.listen_for_score_cards()
+            print(f"returned: {p}")
+        """
 
         while True:
             print("waiting for turn [blocking]")

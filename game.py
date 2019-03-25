@@ -23,6 +23,7 @@ class Player:
     
     def init_cards(self, size):
         self.cards = dict(zip(C_BASE+C_SECU, [size//5]*6), w=size//10, k=size//10)
+        #TODO: improve formulas
     
     def dict(self):
         return self.__dict__
@@ -72,6 +73,8 @@ class Game:
         return player
     
     def choose_score_cards(self, token, cards):
+        #TODO: check for no double cards
+        #TODO: remove cards from hand
         try:
             cards = {k: cards[k] for k in {"3", "-2", "1"}}
             assert all([c in COLORS for c in cards.values()])
@@ -99,9 +102,9 @@ class Game:
         if len(self._players) < self._n_players:
             return False
         self._turn_order = list(self._players.keys())
-        random.shuffle(self._turn_order)
-        self._on_turn = 0
-        self.lay_starting_cards()
+        random.shuffle(self._turn_order) # random turn order
+        self._on_turn = 0 # starting player
+        self.lay_starting_cards() # lay first four cards
         self._started = True
         
         return True
@@ -146,6 +149,9 @@ class Game:
     def play(self, turn):
         if not self.has_started() == True:
             raise GameError("Can't play turn, the game hasn't started yet!")
+        
+        if not self.all_score_cards_given() == True:
+            raise GameError("Can't play turn, not all score cards handed in!")
         
         if type(turn) != Turn:
             raise TurnError("wrong type for `turn`")
